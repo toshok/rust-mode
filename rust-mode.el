@@ -93,10 +93,8 @@
   'font-lock-string-face)
 
 (defun rust-token-comment (st)
-  (let ((eol (point-at-eol)) (n 0))
+  (let ((eol (point-at-eol)))
     (loop
-     (incf n)
-     (when (> n 10) (print "OUT") (return))
      (unless (re-search-forward "\\(/\\*\\)\\|\\(\\*/\\)" eol t)
        (goto-char eol)
        (return))
