@@ -11,13 +11,21 @@
   (tokenize 'rust-token-base)
   (token-arg 0))
 
-; FIXME
+;; FIXME
 (defun rust-compare-state (a b)
   (and (eq (rust-state-tokenize a) (rust-state-tokenize b))
        (eq (rust-state-token-arg a) (rust-state-token-arg b))))
 
 (defvar rust-operator-chars "+-/%=<>!*&|@~")
 (defvar rust-punc-chars "()[].{}:;")
+(defvar rust-value-keywords
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (word '("mod" "if" "else" "while" "do" "alt" "for" "break" "cont" "put" "ret" "be" "fail"
+                    "type" "resource" "check" "assert" "claim" "prove" "state" "gc" "native" "auto"
+                    "fn" "pred" "iter" "import" "export" "let" "const" "log" "log_err" "tag" "obj"))
+      (puthash word t table))
+    table))
+;; FIXME type-context keywords
 
 (defvar rust-tcat nil "For multiple returns without consing")
 
@@ -93,7 +101,8 @@
     (setf rust-tcat nil)
     (let ((tok (funcall (rust-state-tokenize st) st)))
       (if (stringp tok)
-          nil
+          (when (gethash tok rust-value-keywords nil)
+            'font-lock-keyword-face)
         tok))))
 
 (provide 'rust-mode)
