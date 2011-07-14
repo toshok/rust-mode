@@ -11,7 +11,7 @@
   (if (consp state) (copy-sequence state) state))
 
 (defun cm-clear-work-items (from1 to1)
-  (setq cm-worklist (delete-if (lambda (i) (and (>= i from1) (< i to1))) cm-worklist)))
+  (setf cm-worklist (delete-if (lambda (i) (and (>= i from1) (<= i to1))) cm-worklist)))
 
 ;; Parsing utilities FIXME find built-in equivalents
 
@@ -21,31 +21,26 @@
   (when (looking-at re)
     (goto-char (match-end 0))
     t))
+(defun cm-eat-char ()
+  (let ((ch (char-after)))
+    (unless (eq ch ?\n) (forward-char 1) ch)))
+(defun cm-eat-string (str)
+  (let ((p (point)) (e (+ p (length str))))
+    (when (equal (buffer-substring p e) str)
+      (goto-char e) t)))
 (defun cm-eat-whitespace ()
-  (cm-eat-set " 	"))
+  (cm-eat-set " \t"))
 
 ;; Indentation
 
 (defun cm-indent ()
   (let ((indent-f (cm-mode-indent cm-cur-mode)))
-    (if indent-f
-        (cm-indent-intelligently indent-f)
-      (cm-indent-simply))))
-
-(defun cm-indent-intelligently (func)
-  (beginning-of-line)
-  (let ((state (or (and (> (point) 1) (get-text-property (- (point) 1) 'cm-parse-state))
-                   (cm-mode-start-state cm-cur-mode))))
-    (indent-line-to (funcall func state))))
-
-(defun cm-indent-simply ()
-  (beginning-of-line)
-  (if (= (point) 1)
-      (indent-line-to 0)
-    (backward-char 1)
-    (let ((prev (current-indentation)))
-      (forward-char 1)
-      (indent-line-to prev))))
+    (when indent-f
+      (beginning-of-line)
+      (let ((state (or (and (> (point) 1) (get-text-property 
+                                           (- (point) 1) 'cm-parse-state))
+                       (funcall (cm-mode-start-state cm-cur-mode)))))
+        (indent-line-to (funcall indent-f state))))))
 
 ;; Highlighting
 
@@ -56,6 +51,7 @@
      (let ((p (point)))
        (when (= p eol) (return))
        (let ((style (funcall (cm-mode-token cm-cur-mode) state)))
+         (when (= p (point)) (error "Nothing consumed."))
          (when style
            (put-text-property p (point) 'face style)))))))
 
@@ -85,11 +81,13 @@
         (restore-buffer-modified-p nil)))))
 
 (defun cm-do-some-work (buffer)
+  (condition-case err
   (with-current-buffer buffer
     (save-excursion
       (while cm-worklist
-        (when (input-pending-p) (cm-schedule-work) (return))
         (goto-char (apply 'min cm-worklist))
+        (when (let ((timer-idle-list nil)) (input-pending-p))
+          (cm-schedule-work) (return))
         (let ((state (cm-find-state-before-point))
               (startpos (point)))
           (loop
@@ -102,7 +100,8 @@
                                 (funcall (cm-mode-copy-state cm-cur-mode) state)))
            (when (input-pending-p) (return))
            (forward-char 1))
-          (cm-clear-work-items startpos (point)))))))
+          (cm-clear-work-items startpos (point))))))
+  (error (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
   (remove-text-properties from to '(cm-parse-state))
