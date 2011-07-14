@@ -1,3 +1,5 @@
+(eval-when-compile (require 'cl))
+
 ;; Mode data structure
 
 (defstruct cm-mode
@@ -21,9 +23,9 @@
   (when (looking-at re)
     (goto-char (match-end 0))
     t))
-(defun cm-eat-char ()
+(defun cm-eat-char (c)
   (let ((ch (char-after)))
-    (unless (eq ch ?\n) (forward-char 1) ch)))
+    (when (eq ch c) (forward-char 1) t)))
 (defun cm-eat-string (str)
   (let ((p (point)) (e (+ p (length str))))
     (when (equal (buffer-substring p e) str)
@@ -52,6 +54,7 @@
        (when (= p eol) (return))
        (let ((style (funcall (cm-mode-token cm-cur-mode) state)))
          (when (= p (point)) (error "Nothing consumed."))
+         (when (> p eol) (error "Parser moved past EOL"))
          (when style
            (put-text-property p (point) 'face style)))))))
 
