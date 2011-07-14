@@ -9,11 +9,12 @@
 
 (defstruct rust-state
   (tokenize 'rust-token-base)
-  (token-arg nil))
+  (token-arg 0))
 
 ; FIXME
 (defun rust-compare-state (a b)
-  (eq (rust-state-tokenize a) (rust-state-tokenize b)))
+  (and (eq (rust-state-tokenize a) (rust-state-tokenize b))
+       (eq (rust-state-token-arg a) (rust-state-token-arg b))))
 
 (defvar rust-operator-chars "+-/%=<>!*&|")
 

@@ -61,7 +61,7 @@
    (when (= (point) 1)
      (return (funcall (cm-mode-start-state cm-cur-mode))))
    (let ((cur (get-text-property (- (point) 1) 'cm-parse-state)))
-     (when cur (return cur)))
+     (when cur (return (funcall (cm-mode-copy-state cm-cur-mode) cur))))
    (backward-char 1)))
 
 (defun cm-schedule-work ()
