@@ -9,12 +9,21 @@
 
 (defstruct rust-state
   (tokenize 'rust-token-base)
-  (token-arg 0))
+  (context (list (make-rust-context :type 'top :indent 0))))
 
-;; FIXME
+(defstruct rust-context
+  type
+  indent)
+
+(defun push-context (st type)
+  (push (make-rust-context :type type :indent (current-indentation))
+        (rust-state-context st)))
+(defun pop-context (st)
+  (pop (rust-state-context st)))
+
 (defun rust-compare-state (a b)
   (and (eq (rust-state-tokenize a) (rust-state-tokenize b))
-       (eq (rust-state-token-arg a) (rust-state-token-arg b))))
+       (equal (rust-state-context a) (rust-state-context b))))
 
 (defvar rust-operator-chars "+-/%=<>!*&|@~")
 (defvar rust-punc-chars "()[].{}:;")
@@ -27,11 +36,12 @@
     table))
 ;; FIXME type-context keywords
 
-(defvar rust-tcat nil "For multiple returns without consing")
+(defvar rust-tcat nil "Kludge for multiple returns without consing")
 
 (defun rust-token-base (st)
   (case (char-after)
     (?\" (forward-char 1)
+         (push-context st 'string)
          (setf (rust-state-tokenize st) 'rust-token-string)
          (rust-token-string st))
     (?\' (forward-char 1)
@@ -44,8 +54,8 @@
     (?/ (cond ((cm-eat-string "//")
                (end-of-line) 'font-lock-comment-face)
               ((cm-eat-string "/*")
-               (setf (rust-state-tokenize st) 'rust-token-comment
-                     (rust-state-token-arg st) 1)
+               (push-context st 'comment)
+               (setf (rust-state-tokenize st) 'rust-token-comment)
                (rust-token-comment st))
               (t (while (cm-eat-set rust-operator-chars)) (setf rust-tcat 'op) nil)))
     (?# (cm-eat-re "[a-z_]+") (setf rust-tcat 'macro) 'font-lock-preprocessor-face)
@@ -77,6 +87,7 @@
          (?\n (return))
          (?\" (unless escaped
                 (setf (rust-state-tokenize st) 'rust-token-base)
+                (pop-context st)
                 (return))))
        (setf escaped (and (not escaped) (eq ch ?\\))))))
   'font-lock-string-face)
@@ -90,8 +101,9 @@
        (goto-char eol)
        (return))
      (if (match-beginning 1)
-         (incf (rust-state-token-arg st))
-       (when (= (decf (rust-state-token-arg st)) 0)
+         (push-context st 'comment)
+       (pop-context st)
+       (unless (eq (rust-context-type (car (rust-state-context st))) 'comment)
          (setf (rust-state-tokenize st) 'rust-token-base)
          (return))))
     'font-lock-comment-face))
