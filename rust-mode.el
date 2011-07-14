@@ -1,7 +1,13 @@
-; keyword comment constant function-name preprocessor string variable-name warning
+;; FIXME keymap, syntax-table
+
+;; font-lock-*-face: keyword comment constant function-name preprocessor string variable-name warning
 
 (defun rust-mode-2 ()
   (interactive)
+  (kill-all-local-variables)
+  (setq major-mode 'rust-mode
+    mode-name "Rust")
+  (run-hooks 'rust-mode-hook)
   (cm-mode (make-cm-mode :token 'rust-token
                          :start-state 'make-rust-state
                          :copy-state 'copy-rust-state
@@ -15,10 +21,10 @@
   type
   indent)
 
-(defun push-context (st type)
+(defun rust-push-context (st type)
   (push (make-rust-context :type type :indent (current-indentation))
         (rust-state-context st)))
-(defun pop-context (st)
+(defun rust-pop-context (st)
   (pop (rust-state-context st)))
 
 (defun rust-compare-state (a b)
@@ -41,7 +47,7 @@
 (defun rust-token-base (st)
   (case (char-after)
     (?\" (forward-char 1)
-         (push-context st 'string)
+         (rust-push-context st 'string)
          (setf (rust-state-tokenize st) 'rust-token-string)
          (rust-token-string st))
     (?\' (forward-char 1)
@@ -54,7 +60,7 @@
     (?/ (cond ((cm-eat-string "//")
                (end-of-line) 'font-lock-comment-face)
               ((cm-eat-string "/*")
-               (push-context st 'comment)
+               (rust-push-context st 'comment)
                (setf (rust-state-tokenize st) 'rust-token-comment)
                (rust-token-comment st))
               (t (while (cm-eat-set rust-operator-chars)) (setf rust-tcat 'op) nil)))
@@ -87,7 +93,7 @@
          (?\n (return))
          (?\" (unless escaped
                 (setf (rust-state-tokenize st) 'rust-token-base)
-                (pop-context st)
+                (rust-pop-context st)
                 (return))))
        (setf escaped (and (not escaped) (eq ch ?\\))))))
   'font-lock-string-face)
@@ -99,8 +105,8 @@
        (goto-char eol)
        (return))
      (if (match-beginning 1)
-         (push-context st 'comment)
-       (pop-context st)
+         (rust-push-context st 'comment)
+       (rust-pop-context st)
        (unless (eq (rust-context-type (car (rust-state-context st))) 'comment)
          (setf (rust-state-tokenize st) 'rust-token-base)
          (return))))
@@ -110,9 +116,9 @@
   (unless (cm-eat-whitespace)
     (setf rust-tcat nil)
     (let ((tok (funcall (rust-state-tokenize st) st)))
-      (if (stringp tok)
-          (when (gethash tok rust-value-keywords nil)
-            'font-lock-keyword-face)
-        tok))))
+      (when (stringp tok)
+        (setf tok (and (gethash tok rust-value-keywords nil)
+                       'font-lock-keyword-face)))
+      tok)))
 
 (provide 'rust-mode)
