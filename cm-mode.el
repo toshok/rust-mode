@@ -37,13 +37,17 @@
 ;; Indentation
 
 (defun cm-indent ()
-  (let ((indent-f (cm-mode-indent cm-cur-mode)))
-    (when indent-f
+  (let ((indent-pos))
+    (save-excursion
       (beginning-of-line)
-      (let ((state (or (and (> (point) 1) (get-text-property 
-                                           (- (point) 1) 'cm-parse-state))
-                       (funcall (cm-mode-start-state cm-cur-mode)))))
-        (indent-line-to (funcall indent-f state))))))
+      (let ((state (or (and (> (point) 1)
+                         (get-text-property (- (point) 1) 'cm-parse-state))
+                    (funcall (cm-mode-start-state cm-cur-mode)))))
+        (back-to-indentation)
+        (indent-line-to (funcall (cm-mode-indent cm-cur-mode) state))
+        (setf indent-pos (point))))
+    (when (< (point) indent-pos)
+      (goto-char indent-pos))))
 
 ;; Highlighting
 
@@ -117,7 +121,8 @@
 (defun cm-mode (mode)
   (set (make-local-variable 'cm-cur-mode) mode)
   (set (make-local-variable 'cm-worklist) '(1))
-  (set (make-local-variable 'indent-line-function) 'cm-indent)
+  (when (cm-mode-indent mode)
+    (set (make-local-variable 'indent-line-function) 'cm-indent))
   (add-hook 'after-change-functions 'cm-after-change-function t t)
   (call/preserved-state 'cm-do-some-work (current-buffer)))
 

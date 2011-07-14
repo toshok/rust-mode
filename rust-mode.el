@@ -1,28 +1,35 @@
-;; FIXME keymap, syntax-table
-
 ;; font-lock-*-face: keyword comment constant function-name preprocessor string variable-name warning
+
+;; FIXME this doesn't do what I hoped it would wrt to paren-matching in comments
+(defvar rust-mode-syntax-table (funcall (c-lang-const c-make-mode-syntax-table rust))
+  "Syntax table used in rust-mode buffers.")
+(defvar rust-mode-map (make-keymap))
 
 (defun rust-mode-2 ()
   (interactive)
   (kill-all-local-variables)
-  (setq major-mode 'rust-mode
-    mode-name "Rust")
+  (set-syntax-table rust-mode-syntax-table)
+  (use-local-map rust-mode-map)
+  (setq major-mode 'rust-mode mode-name "Rust")
   (run-hooks 'rust-mode-hook)
   (cm-mode (make-cm-mode :token 'rust-token
                          :start-state 'make-rust-state
                          :copy-state 'copy-rust-state
-                         :compare-state 'rust-compare-state)))
+                         :compare-state 'rust-compare-state
+                         :indent 'rust-indent)))
 
 (defstruct rust-state
   (tokenize 'rust-token-base)
-  (context (list (make-rust-context :type 'top :indent 0))))
+  (context (list (make-rust-context :type 'top :indent (- rust-indent-unit) :align nil))))
 
 (defstruct rust-context
   type
-  indent)
+  indent
+  column
+  (align 'unset))
 
 (defun rust-push-context (st type)
-  (push (make-rust-context :type type :indent (current-indentation))
+  (push (make-rust-context :type type :indent (current-indentation) :column (current-column))
         (rust-state-context st)))
 (defun rust-pop-context (st)
   (pop (rust-state-context st)))
@@ -54,7 +61,7 @@
          (setf rust-tcat 'atom)
          (let ((escaped (eq (char-after) ?\\))
                (start (point)))
-           (while (case (char-after) ((?\' ?\n) nil) (t t)) (forward-char 1))
+           (while (case (char-after) ((?\' ?\n nil) nil) (t t)) (forward-char 1))
            (if (and (cm-eat-char ?\') (or escaped (= (point) (+ start 2))))
                'font-lock-string-face 'font-lock-warning-face)))
     (?/ (cond ((cm-eat-string "//")
@@ -88,13 +95,14 @@
   (let (escaped)
     (loop
      (let ((ch (char-after)))
-       (forward-char 1)
        (case ch
-         (?\n (return))
+         ((?\n nil) (return))
          (?\" (unless escaped
                 (setf (rust-state-tokenize st) 'rust-token-base)
                 (rust-pop-context st)
+                (forward-char 1)
                 (return))))
+       (forward-char 1)
        (setf escaped (and (not escaped) (eq ch ?\\))))))
   'font-lock-string-face)
 
@@ -113,12 +121,43 @@
     'font-lock-comment-face))
 
 (defun rust-token (st)
-  (unless (cm-eat-whitespace)
-    (setf rust-tcat nil)
-    (let ((tok (funcall (rust-state-tokenize st) st)))
-      (when (stringp tok)
-        (setf tok (and (gethash tok rust-value-keywords nil)
-                       'font-lock-keyword-face)))
-      tok)))
+  (let ((cx (car (rust-state-context st))))
+    (when (bolp)
+      (when (eq (rust-context-align cx) 'unset)
+        (setf (rust-context-align cx) nil)))
+    (unless (cm-eat-whitespace)
+      (setf rust-tcat nil)
+      (let ((tok (funcall (rust-state-tokenize st) st))
+            (cur-cx (rust-context-type cx)))
+        (when (stringp tok)
+          (setf tok (and (gethash tok rust-value-keywords nil)
+                         'font-lock-keyword-face)))
+        (when rust-tcat
+          (when (eq (rust-context-align cx) 'unset)
+            (setf (rust-context-align cx) t))
+          (case rust-tcat
+            ((?\; ?:) (when (eq cur-cx 'statement) (rust-pop-context st)))
+            (?\{ (rust-push-context st ?\}))
+            (?\[ (rust-push-context st ?\]))
+            (?\( (rust-push-context st ?\)))
+            (?\} (dolist (close '(statement ?} statement))
+                   (when (eq close cur-cx)
+                     (setf cur-cx (rust-context-type (rust-pop-context st))))))
+            (t (cond ((eq cur-cx rust-tcat) (rust-pop-context st))
+                     ((or (eq cur-cx ?}) (eq cur-cx 'top))
+                      (rust-push-context st 'statement))))))
+        tok))))
+
+(defvar rust-indent-unit 4)
+
+;; FIXME alt half-indent
+(defun rust-indent (st)
+  (let* ((cx (car (rust-state-context st)))
+         (closing (eq (rust-context-type cx) (char-after))))
+    (cond ((eq (rust-state-tokenize st) 'rust-token-string) 0)
+          ((eq (rust-context-type cx) 'statement)
+           (+ (rust-context-indent cx) (if (eq (char-after) ?\}) 0 rust-indent-unit)))
+          ((eq (rust-context-align cx) t) (+ (rust-context-column cx) (if closing 0 1)))
+          (t (+ (rust-context-indent cx) (if closing 0 rust-indent-unit))))))
 
 (provide 'rust-mode)
