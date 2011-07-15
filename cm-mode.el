@@ -40,14 +40,39 @@
   (let ((indent-pos))
     (save-excursion
       (beginning-of-line)
-      (let ((state (or (and (> (point) 1)
-                         (get-text-property (- (point) 1) 'cm-parse-state))
-                    (funcall (cm-mode-start-state cm-cur-mode)))))
+      (let ((state (cm-state-for-point)))
         (back-to-indentation)
         (indent-line-to (funcall (cm-mode-indent cm-cur-mode) state))
         (setf indent-pos (point))))
     (when (< (point) indent-pos)
       (goto-char indent-pos))))
+
+(defun cm-backtrack-to-state ()
+  (let ((backtracked 0)
+        (min-indent most-positive-fixnum)
+        min-indented)
+    (loop
+     (when (= (point) (point-min))
+       (return (funcall (cm-mode-start-state cm-cur-mode))))
+     (let ((st (get-text-property (- (point) 1) 'cm-parse-state)))
+       (when st (return (funcall (cm-mode-copy-state cm-cur-mode) st))))
+     (let ((i (current-indentation)))
+       (when (< i min-indent)
+         (setf min-indent i min-indented (point))))
+     (when (> (incf backtracked) 30)
+       (goto-char min-indented)
+       (return (funcall (cm-mode-start-state cm-cur-mode))))
+     (forward-line -1))))
+
+(defun cm-state-for-point ()
+  (let ((pos (point))
+        (state (cm-backtrack-to-state)))
+    (while (< (point) pos)
+      (cm-highlight-line state)
+      (put-text-property (point) (+ (point) 1) 'cm-parse-state
+                         (funcall (cm-mode-copy-state cm-cur-mode) state))
+      (forward-char 1))
+    state))
 
 ;; Highlighting
 
@@ -106,7 +131,7 @@
                (return))
              (put-text-property (point) (+ (point) 1) 'cm-parse-state
                                 (funcall (cm-mode-copy-state cm-cur-mode) state)))
-           (when (input-pending-p) (return))
+           (when (let ((timer-idle-list nil)) (input-pending-p)) (return))
            (forward-char 1))
           (cm-clear-work-items startpos (point))))))
   (error (print (error-message-string err)))))
