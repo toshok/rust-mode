@@ -44,20 +44,23 @@
 ;; Indentation
 
 (defun cm-indent ()
-  (let ((indent-pos))
+  (let (indent-pos)
     (save-excursion
       (beginning-of-line)
-      (let ((state (cm-state-for-point))
+      (let ((state (call/preserved-state 'cm-state-for-point))
             (old-indent (current-indentation)))
         (back-to-indentation)
+        (setf indent-pos (point))
         (let ((new-indent (funcall (cm-mode-indent cm-cur-mode) state)))
-          (indent-line-to new-indent)
-          (setf indent-pos (point))
           (unless (= old-indent new-indent)
+            (indent-line-to new-indent)
+            (setf indent-pos (point))
             (beginning-of-line)
-            (cm-highlight-line state)
-            (when (< (point) (point-max))
-              (put-text-property (point) (+ (point) 1) 'cm-parse-state state))))))
+            (call/preserved-state
+             (lambda ()
+               (cm-highlight-line state)
+               (when (< (point) (point-max))
+                 (put-text-property (point) (+ (point) 1) 'cm-parse-state state))))))))
     (when (< (point) indent-pos)
       (goto-char indent-pos))))
 
@@ -153,7 +156,7 @@
            (forward-char 1))
           (cm-clear-work-items startpos (point))
           (when bailed-out
-            (push (point) cm-worklist)
+            (push (+ (point) 1) cm-worklist)
             (cm-schedule-work)
             (return))))))
   (error (print (error-message-string err)))))
@@ -169,8 +172,7 @@
   (set (make-local-variable 'cm-cur-mode) mode)
   (set (make-local-variable 'cm-worklist) '(1))
   (when (cm-mode-indent mode)
-    (set (make-local-variable 'indent-line-function)
-         (lambda () (call/preserved-state 'cm-indent))))
+    (set (make-local-variable 'indent-line-function) 'cm-indent))
   (add-hook 'after-change-functions 'cm-after-change-function t t)
   (call/preserved-state 'cm-do-some-work (current-buffer)))
 
