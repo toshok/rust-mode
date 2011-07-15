@@ -4,6 +4,8 @@
 ;; storing the parser state at the end of each line. Indentation is
 ;; done based on the parser state at the start of the line.
 
+;; FIXME profile, figure out which parts are taking up time
+
 (require 'cl)
 
 ;; Mode data structure
@@ -125,17 +127,19 @@
       (unless modified
         (restore-buffer-modified-p nil)))))
 
+;; FIXME make sure the parse doesn't continue for too long, interrupt
+;; voluntarily after half a sec
 (defun cm-do-some-work (buffer)
   (condition-case err
   (with-current-buffer buffer
     (save-excursion
       (while cm-worklist
         (goto-char (apply 'min cm-worklist))
-        ;; FIXME test whether this actually allows us to interrupt a parse
         (when (let ((timer-idle-list nil)) (input-pending-p))
           (cm-schedule-work) (return))
         (let ((state (cm-find-state-before-point))
-              (startpos (point)))
+              (startpos (point))
+              (bailed-out nil))
           (loop
            (cm-highlight-line state)
            (when (= (point) (point-max)) (return))
@@ -144,9 +148,14 @@
                (return))
              (put-text-property (point) (+ (point) 1) 'cm-parse-state
                                 (funcall (cm-mode-copy-state cm-cur-mode) state)))
-           (when (let ((timer-idle-list nil)) (input-pending-p)) (return))
+           (when (let ((timer-idle-list nil)) (input-pending-p))
+             (setf bailed-out t) (return))
            (forward-char 1))
-          (cm-clear-work-items startpos (point))))))
+          (cm-clear-work-items startpos (point))
+          (when bailed-out
+            (push (point) cm-worklist)
+            (cm-schedule-work)
+            (return))))))
   (error (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
