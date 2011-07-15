@@ -74,7 +74,7 @@
               (t (while (cm-eat-set rust-operator-chars)) (setf rust-tcat 'op) nil)))
     (?# (forward-char 1)
         (cm-eat-re "[a-z_]+") (setf rust-tcat 'macro) 'font-lock-preprocessor-face)
-    (t (cond ((cm-eat-re "[a-z_]+")
+    (t (cond ((cm-eat-re "[a-zA-Z_][a-zA-Z0-9_]+") ;; FIXME char classes?
               (setf rust-tcat 'ident)
               (let ((word (match-string 0)))
                 (if (cm-eat-string "::")
