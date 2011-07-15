@@ -15,12 +15,13 @@
   (cm-mode (make-cm-mode :token 'rust-token
                          :start-state 'make-rust-state
                          :copy-state 'copy-rust-state
-                         :compare-state 'rust-compare-state
+                         :compare-state 'equal
                          :indent 'rust-indent)))
 
 (defstruct rust-state
   (tokenize 'rust-token-base)
-  (context (list (make-rust-context :type 'top :indent (- rust-indent-unit) :align nil))))
+  (context (list (make-rust-context :type 'top :indent (- rust-indent-unit) :align nil)))
+  (indent 0))
 
 (defstruct rust-context
   type
@@ -28,15 +29,14 @@
   column
   (align 'unset))
 
-(defun rust-push-context (st type)
-  (push (make-rust-context :type type :indent (current-indentation) :column (current-column))
+(defun rust-push-context (st type column)
+  (push (make-rust-context :type type :indent (rust-state-indent st) :column column)
         (rust-state-context st)))
 (defun rust-pop-context (st)
-  (pop (rust-state-context st)))
-
-(defun rust-compare-state (a b)
-  (and (eq (rust-state-tokenize a) (rust-state-tokenize b))
-       (equal (rust-state-context a) (rust-state-context b))))
+  (let* ((old (pop (rust-state-context st)))
+         (tp (rust-context-type old)))
+    (when (or (eq tp ?\)) (eq tp ?\]) (eq tp ?\}))
+      (setf (rust-state-indent st) (rust-context-indent old)))))
 
 (defvar rust-operator-chars "+-/%=<>!*&|@~")
 (defvar rust-punc-chars "()[].{}:;")
@@ -54,7 +54,7 @@
 (defun rust-token-base (st)
   (case (char-after)
     (?\" (forward-char 1)
-         (rust-push-context st 'string)
+         (rust-push-context st 'string 0)
          (setf (rust-state-tokenize st) 'rust-token-string)
          (rust-token-string st))
     (?\' (forward-char 1)
@@ -67,7 +67,7 @@
     (?/ (cond ((cm-eat-string "//")
                (end-of-line) 'font-lock-comment-face)
               ((cm-eat-string "/*")
-               (rust-push-context st 'comment)
+               (rust-push-context st 'comment 0)
                (setf (rust-state-tokenize st) 'rust-token-comment)
                (rust-token-comment st))
               (t (while (cm-eat-set rust-operator-chars)) (setf rust-tcat 'op) nil)))
@@ -114,7 +114,7 @@
        (goto-char eol)
        (return))
      (if (match-beginning 1)
-         (rust-push-context st 'comment)
+         (rust-push-context st 'comment 0)
        (rust-pop-context st)
        (unless (eq (rust-context-type (car (rust-state-context st))) 'comment)
          (setf (rust-state-tokenize st) 'rust-token-base)
@@ -124,6 +124,7 @@
 (defun rust-token (st)
   (let ((cx (car (rust-state-context st))))
     (when (bolp)
+      (setf (rust-state-indent st) (current-indentation))
       (when (eq (rust-context-align cx) 'unset)
         (setf (rust-context-align cx) nil)))
     (unless (cm-eat-whitespace)
@@ -138,16 +139,16 @@
             (setf (rust-context-align cx) t))
           (case rust-tcat
             ((?\; ?:) (when (eq cur-cx 'statement) (rust-pop-context st)))
-            (?\{ (rust-push-context st ?\}))
-            (?\[ (rust-push-context st ?\]))
-            (?\( (rust-push-context st ?\)))
+            (?\{ (rust-push-context st ?\} (- (current-column) 1)))
+            (?\[ (rust-push-context st ?\] (- (current-column) 1)))
+            (?\( (rust-push-context st ?\) (- (current-column) 1)))
             (?\} (dolist (close '(statement ?\} statement))
                    (when (eq close cur-cx)
                      (rust-pop-context st)
                      (setf cur-cx (rust-context-type (car (rust-state-context st)))))))
             (t (cond ((eq cur-cx rust-tcat) (rust-pop-context st))
                      ((or (eq cur-cx ?\}) (eq cur-cx 'top))
-                      (rust-push-context st 'statement))))))
+                      (rust-push-context st 'statement 0))))))
         tok))))
 
 (defvar rust-indent-unit 4)
