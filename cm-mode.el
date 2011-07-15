@@ -18,7 +18,7 @@
 ;; Parsing utilities FIXME find built-in equivalents
 
 (defun cm-eat-set (set)
-  (> (skip-chars-forward set) 0))
+  (> (skip-chars-forward set (+ (point) 1)) 0))
 (defun cm-eat-re (re)
   (when (looking-at re)
     (goto-char (match-end 0))

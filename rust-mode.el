@@ -141,11 +141,11 @@
             (?\{ (rust-push-context st ?\}))
             (?\[ (rust-push-context st ?\]))
             (?\( (rust-push-context st ?\)))
-            (?\} (dolist (close '(statement ?} statement))
+            (?\} (dolist (close '(statement ?\} statement))
                    (when (eq close cur-cx)
                      (setf cur-cx (rust-context-type (rust-pop-context st))))))
             (t (cond ((eq cur-cx rust-tcat) (rust-pop-context st))
-                     ((or (eq cur-cx ?}) (eq cur-cx 'top))
+                     ((or (eq cur-cx ?\}) (eq cur-cx 'top))
                       (rust-push-context st 'statement))))))
         tok))))
 
