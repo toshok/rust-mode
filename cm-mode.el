@@ -114,35 +114,29 @@
      (when cur (return (funcall (cm-mode-copy-state cm-cur-mode) cur))))
    (backward-char 1)))
 
-(defun cm-schedule-work ()
-  (run-with-idle-timer 0.2 nil 'call/preserved-state 'cm-do-some-work (current-buffer)))
+(defun cm-schedule-work (delay)
+  (run-with-idle-timer delay nil 'call/preserved-state 'cm-do-some-work (current-buffer)))
 
 (defun call/preserved-state (f &rest args)
   (let ((modified (buffer-modified-p))
         (buffer-undo-list t)
         (inhibit-read-only t)
         (inhibit-point-motion-hooks t)
-        (inhibit-modification-hooks t)
-        deactivate-mark
-        buffer-file-name
-        buffer-file-truename)
+        (inhibit-modification-hooks t))
     (unwind-protect (apply f args)
       (unless modified
         (restore-buffer-modified-p nil)))))
 
-;; FIXME make sure the parse doesn't continue for too long, interrupt
-;; voluntarily after half a sec
 (defun cm-do-some-work (buffer)
   (condition-case err
   (with-current-buffer buffer
+    (let ((end-time (time-add (current-time) (list 0 0 500)))
+          (quitting nil))
     (save-excursion
-      (while cm-worklist
+      (while (and cm-worklist (not quitting))
         (goto-char (apply 'min cm-worklist))
-        (when (let ((timer-idle-list nil)) (input-pending-p))
-          (cm-schedule-work) (return))
         (let ((state (cm-find-state-before-point))
-              (startpos (point))
-              (bailed-out nil))
+              (startpos (point)))
           (loop
            (cm-highlight-line state)
            (when (= (point) (point-max)) (return))
@@ -151,20 +145,20 @@
                (return))
              (put-text-property (point) (+ (point) 1) 'cm-parse-state
                                 (funcall (cm-mode-copy-state cm-cur-mode) state)))
-           (when (let ((timer-idle-list nil)) (input-pending-p))
-             (setf bailed-out t) (return))
+           (when (or (let ((timer-idle-list nil)) (input-pending-p))
+                     (time-less-p end-time (current-time)))
+             (setf quitting t) (return))
            (forward-char 1))
           (cm-clear-work-items startpos (point))
-          (when bailed-out
+          (when quitting
             (push (+ (point) 1) cm-worklist)
-            (cm-schedule-work)
-            (return))))))
+            (cm-schedule-work 0.05)))))))
   (error (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
   (remove-text-properties from to '(cm-parse-state))
   (push from cm-worklist)
-  (cm-schedule-work))
+  (cm-schedule-work 0.2))
 
 ;; Entry function
 
@@ -174,6 +168,6 @@
   (when (cm-mode-indent mode)
     (set (make-local-variable 'indent-line-function) 'cm-indent))
   (add-hook 'after-change-functions 'cm-after-change-function t t)
-  (call/preserved-state 'cm-do-some-work (current-buffer)))
+  (cm-schedule-work 0.05))
 
 (provide 'cm-mode)
