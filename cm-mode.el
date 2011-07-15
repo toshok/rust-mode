@@ -1,4 +1,10 @@
-(eval-when-compile (require 'cl))
+;; Wrapper for CodeMirror-style emacs modes. Highlighting is done by
+;; running a stateful parser (with first-class state object) over the
+;; buffer, line by line, using the output to add 'face properties, and
+;; storing the parser state at the end of each line. Indentation is
+;; done based on the parser state at the start of the line.
+
+(require 'cl)
 
 ;; Mode data structure
 
@@ -15,7 +21,7 @@
 (defun cm-clear-work-items (from1 to1)
   (setf cm-worklist (delete-if (lambda (i) (and (>= i from1) (<= i to1))) cm-worklist)))
 
-;; Parsing utilities FIXME find built-in equivalents
+;; Parsing utilities
 
 (defun cm-eat-set (set)
   (> (skip-chars-forward set (+ (point) 1)) 0))
@@ -24,8 +30,7 @@
     (goto-char (match-end 0))
     t))
 (defun cm-eat-char (c)
-  (let ((ch (char-after)))
-    (when (eq ch c) (forward-char 1) t)))
+  (when (eq (char-after) c) (forward-char 1) t))
 (defun cm-eat-string (str)
   (let* ((p (point)) (e (+ p (length str))))
     (when (and (<= e (point-max))
@@ -126,6 +131,7 @@
     (save-excursion
       (while cm-worklist
         (goto-char (apply 'min cm-worklist))
+        ;; FIXME test whether this actually allows us to interrupt a parse
         (when (let ((timer-idle-list nil)) (input-pending-p))
           (cm-schedule-work) (return))
         (let ((state (cm-find-state-before-point))

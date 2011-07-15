@@ -1,11 +1,11 @@
-;; font-lock-*-face: keyword comment constant function-name preprocessor string variable-name warning
+(require 'cm-mode)
 
 ;; FIXME this doesn't do what I hoped it would wrt to paren-matching in comments
 (defvar rust-mode-syntax-table (funcall (c-lang-const c-make-mode-syntax-table rust))
   "Syntax table used in rust-mode buffers.")
 (defvar rust-mode-map (make-keymap))
 
-(defun rust-mode-2 ()
+(defun rust-mode ()
   (interactive)
   (kill-all-local-variables)
   (set-syntax-table rust-mode-syntax-table)
