@@ -8,12 +8,18 @@
 
 ;; Mode data structure
 
-(defstruct cm-mode
-  (token (error "Must provide a token function."))
-  (start-state (lambda () 'null))
-  (copy-state 'cm-default-copy-state)
-  (compare-state 'eq)
-  (indent nil))
+(defun make-cm-mode (token &optional start-state copy-state
+                           compare-state indent)
+  (vector token
+          (or start-state (lambda () 'null))
+          (or copy-state 'cm-default-copy-state)
+          (or compare-state 'eq)
+          indent))
+(defmacro cm-mode-token (x) `(aref ,x 0))
+(defmacro cm-mode-start-state (x) `(aref ,x 1))
+(defmacro cm-mode-copy-state (x) `(aref ,x 2))
+(defmacro cm-mode-compare-state (x) `(aref ,x 3))
+(defmacro cm-mode-indent (x) `(aref ,x 4))
 
 (defvar cm-cur-mode nil)
 (defvar cm-worklist nil)

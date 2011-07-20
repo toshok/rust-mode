@@ -16,11 +16,7 @@
   (use-local-map rust-mode-map)
   (setq major-mode 'rust-mode mode-name "Rust")
   (run-hooks 'rust-mode-hook)
-  (cm-mode (make-cm-mode :token 'rust-token
-                         :start-state 'make-rust-state
-                         :copy-state 'copy-sequence
-                         :compare-state 'equal
-                         :indent 'rust-indent)))
+  (cm-mode (make-cm-mode 'rust-token 'make-rust-state 'copy-sequence 'equal 'rust-indent)))
 
 (defun make-rust-state ()
   (vector 'rust-token-base
