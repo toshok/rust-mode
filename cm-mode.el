@@ -36,24 +36,6 @@
             (t (setf cm-worklist (cdr rem))))
       (setf rem (cdr rem)))))
 
-;; Parsing utilities
-
-(defun cm-eat-set (set)
-  (> (skip-chars-forward set (+ (point) 1)) 0))
-(defun cm-eat-re (re)
-  (when (looking-at re)
-    (goto-char (match-end 0))
-    t))
-(defun cm-eat-char (c)
-  (when (eq (char-after) c) (forward-char 1) t))
-(defun cm-eat-string (str)
-  (let* ((p (point)) (e (+ p (length str))))
-    (when (and (<= e (point-max))
-               (equal (buffer-substring-no-properties p e) str))
-      (goto-char e) t)))
-(defun cm-eat-whitespace ()
-  (cm-eat-set " \t"))
-
 ;; Indentation
 
 (defun cm-indent ()
