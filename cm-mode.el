@@ -4,7 +4,7 @@
 ;; storing the parser state at the end of each line. Indentation is
 ;; done based on the parser state at the start of the line.
 
-(require 'cl)
+(eval-when-compile (require 'cl))
 
 ;; Mode data structure
 
@@ -21,8 +21,14 @@
 (defun cm-default-copy-state (state)
   (if (consp state) (copy-sequence state) state))
 
-(defun cm-clear-work-items (from1 to1)
-  (setf cm-worklist (delete-if (lambda (i) (and (>= i from1) (<= i to1))) cm-worklist)))
+(defun cm-clear-work-items (from to)
+  (let ((prev-cons nil)
+        (rem cm-worklist))
+    (while rem
+      (cond ((or (< (car rem) from) (> (car rem) to)) (setf prev-cons rem))
+            (prev-cons (setf (cdr prev-cons) (cdr rem)))
+            (t (setf cm-worklist (cdr rem))))
+      (setf rem (cdr rem)))))
 
 ;; Parsing utilities
 
