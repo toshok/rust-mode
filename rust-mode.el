@@ -1,41 +1,44 @@
 (require 'cm-mode)
 
 ;; FIXME this doesn't do what I hoped it would wrt to paren-matching in comments
-(defvar rust-mode-syntax-table (funcall (c-lang-const c-make-mode-syntax-table rust))
-  "Syntax table used in rust-mode buffers.")
+;(defvar rust-mode-syntax-table (funcall (c-lang-const c-make-mode-syntax-table rust))
+;  "Syntax table used in rust-mode buffers.")
 (defvar rust-mode-map (make-keymap))
+
+(add-to-list 'auto-mode-alist '("\\.rs$" . rust-mode))
+(add-to-list 'auto-mode-alist '("\\.rc$" . rust-mode))
 
 (defun rust-mode ()
   (interactive)
   (kill-all-local-variables)
-  (set-syntax-table rust-mode-syntax-table)
+;  (set-syntax-table rust-mode-syntax-table)
   (use-local-map rust-mode-map)
   (setq major-mode 'rust-mode mode-name "Rust")
   (run-hooks 'rust-mode-hook)
   (cm-mode (make-cm-mode :token 'rust-token
                          :start-state 'make-rust-state
-                         :copy-state 'copy-rust-state
+                         :copy-state 'copy-sequence
                          :compare-state 'equal
                          :indent 'rust-indent)))
 
-(defstruct rust-state
-  (tokenize 'rust-token-base)
-  (context (list (make-rust-context :type 'top :indent (- rust-indent-unit) :align nil)))
-  (indent 0))
+(defun make-rust-state ()
+  (vector 'rust-token-base
+          (list (vector 'top (- rust-indent-unit) nil nil))
+          0))
+(defmacro rust-state-tokenize (x) `(aref ,x 0))
+(defmacro rust-state-context (x) `(aref ,x 1))
+(defmacro rust-state-indent (x) `(aref ,x 2))
 
-(defstruct rust-context
-  type
-  indent
-  column
-  (align nil))
+(defmacro rust-context-type (x) `(aref ,x 0))
+(defmacro rust-context-indent (x) `(aref ,x 1))
+(defmacro rust-context-column (x) `(aref ,x 2))
+(defmacro rust-context-align (x) `(aref ,x 3))
 
 (defun rust-push-context (st type &optional align-column)
-  (push (make-rust-context :type type :indent (rust-state-indent st)
-                           :column align-column :align (if align-column 'unset nil))
+  (push (vector type (rust-state-indent st) align-column (if align-column 'unset nil))
         (rust-state-context st)))
 (defun rust-pop-context (st)
-  (let ((old (pop (rust-state-context st))))
-    (setf (rust-state-indent st) (rust-context-indent old))))
+  (setf (rust-state-indent st) (rust-context-indent (pop (rust-state-context st)))))
 
 (defvar rust-operator-chars "+-/%=<>!*&|@~")
 (defvar rust-punc-chars "()[].{}:;")
@@ -168,3 +171,4 @@
           (t (+ (rust-context-indent cx) (if closing 0 rust-indent-unit))))))
 
 (provide 'rust-mode)
+
