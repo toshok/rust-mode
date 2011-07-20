@@ -71,7 +71,6 @@
                  (start (point)))
              (if (not (rust-eat-until-unescaped ?\'))
                  'font-lock-warning-face
-               (forward-char 1)
                (if (or is-escape (= (point) (+ start 2)))
                    'font-lock-string-face 'font-lock-warning-face))))
       (def ?/ (forward-char 1)
@@ -119,16 +118,15 @@
     (loop
      (let ((cur (char-after)))
        (when (or (eq cur ?\n) (not cur)) (return nil))
-       (when (and (eq cur ch) (not escaped)) (return t))
        (forward-char 1)
+       (when (and (eq cur ch) (not escaped)) (return t))
        (setf escaped (and (not escaped) (eq cur ?\\)))))))
 
 (defun rust-token-string (st)
   (setf rust-tcat 'atom)
   (when (rust-eat-until-unescaped ?\")
     (setf (rust-state-tokenize st) 'rust-token-base)
-    (rust-pop-context st)
-    (forward-char 1))
+    (rust-pop-context st))
   'font-lock-string-face)
 
 (defun rust-token-comment (st)
@@ -187,4 +185,3 @@
           (t (+ (rust-context-indent cx) (if closing 0 rust-indent-unit))))))
 
 (provide 'rust-mode)
-

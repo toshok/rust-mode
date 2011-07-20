@@ -129,7 +129,10 @@
           (quitting nil))
     (save-excursion
       (while (and cm-worklist (not quitting))
-        (goto-char (apply 'min cm-worklist))
+        (loop
+         (let ((work (apply 'min cm-worklist)))
+           (when (< work (point-max))
+             (return (goto-char work)))))
         (let ((state (cm-find-state-before-point))
               (startpos (point)))
           (loop
