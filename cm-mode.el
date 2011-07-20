@@ -4,8 +4,6 @@
 ;; storing the parser state at the end of each line. Indentation is
 ;; done based on the parser state at the start of the line.
 
-;; FIXME profile, figure out which parts are taking up time
-
 (require 'cl)
 
 ;; Mode data structure
@@ -16,6 +14,9 @@
   (copy-state 'cm-default-copy-state)
   (compare-state 'eq)
   (indent nil))
+
+(defvar cm-cur-mode nil)
+(defvar cm-worklist nil)
 
 (defun cm-default-copy-state (state)
   (if (consp state) (copy-sequence state) state))
@@ -100,7 +101,7 @@
      (let ((p (point)))
        (when (= p eol) (return))
        (let ((style (funcall (cm-mode-token cm-cur-mode) state)))
-         (when (= p (point)) (error "Nothing consumed."))
+         (when (= p (point)) (print (point)) (error "Nothing consumed."))
          (when (> p eol) (error "Parser moved past EOL"))
          (when style
            (put-text-property p (point) 'face style)))))))
