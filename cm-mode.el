@@ -36,11 +36,6 @@
             (t (setf cm-worklist (cdr rem))))
       (setf rem (cdr rem)))))
 
-;; Paren matching
-
-(defun cm-blink-paren ()
-  (print "blink"))
-
 ;; Indentation
 
 (defun cm-indent ()
@@ -171,7 +166,6 @@
 (defun cm-mode (mode)
   (set (make-local-variable 'cm-cur-mode) mode)
   (set (make-local-variable 'cm-worklist) '(1))
-  (set (make-local-variable 'blink-paren-function) 'cm-blink-paren)
   (when (cm-mode-indent mode)
     (set (make-local-variable 'indent-line-function) 'cm-indent))
   (add-hook 'after-change-functions 'cm-after-change-function t t)

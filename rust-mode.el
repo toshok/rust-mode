@@ -1,9 +1,18 @@
 (require 'cm-mode)
 (require 'cc-mode)
 
-;; FIXME electric }
+(defvar rust-mode-map (let ((map (make-keymap)))
+                        (define-key map "}" 'rust-electric-brace)
+                        (define-key map "{" 'rust-electric-brace)
+                        map))
+(defun rust-electric-brace (arg)
+  (interactive "*P")
+  (self-insert-command (prefix-numeric-value arg))
+  (when (and c-electric-flag
+             (not (member (get-text-property (point) 'face)
+                          '(font-lock-comment-face font-lock-string-face))))
+    (cm-indent)))
 
-(defvar rust-mode-map (make-keymap))
 (defvar rust-indent-unit 4)
 (defvar rust-syntax-table (let ((table (make-syntax-table)))
                             (c-populate-syntax-table table)
