@@ -208,7 +208,9 @@
       tok)))
 
 (defun rust-indent (st)
-  (let* ((cx (car (rust-state-context st)))
+  (let* ((cx (let ((head (car (rust-state-context st))))
+               (if (and (eq (char-after) ?\{) (eq (rust-context-type head) 'statement))
+                   (cadr (rust-state-context st)) head)))
          (closing (eq (rust-context-type cx) (char-after)))
          (unit (if (rust-context-in-alt cx) (/ rust-indent-unit 2) rust-indent-unit)))
     (cond ((eq (rust-state-tokenize st) 'rust-token-string) 0)
