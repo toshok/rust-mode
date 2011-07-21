@@ -1,6 +1,8 @@
 (require 'cm-mode)
 (require 'cc-mode)
 
+;; FIXME electric }
+
 (defvar rust-mode-map (make-keymap))
 (defvar rust-indent-unit 4)
 (defvar rust-syntax-table (let ((table (make-syntax-table)))
@@ -27,16 +29,18 @@
 (defmacro rust-state-tokenize (x) `(aref ,x 0))
 (defmacro rust-state-context (x) `(aref ,x 1))
 (defmacro rust-state-indent (x) `(aref ,x 2))
-(defmacro rust-state-expect-def (x) `(aref ,x 3))
+(defmacro rust-state-expect (x) `(aref ,x 3))
 
 (defmacro rust-context-type (x) `(aref ,x 0))
 (defmacro rust-context-indent (x) `(aref ,x 1))
 (defmacro rust-context-column (x) `(aref ,x 2))
 (defmacro rust-context-align (x) `(aref ,x 3))
+(defmacro rust-context-in-alt (x) `(aref ,x 4))
 
 (defun rust-push-context (st type &optional align-column)
-  (push (vector type (rust-state-indent st) align-column (if align-column 'unset nil))
-        (rust-state-context st)))
+  (let ((ctx (vector type (rust-state-indent st) align-column (if align-column 'unset nil) nil)))
+    (push ctx (rust-state-context st))
+    ctx))
 (defun rust-pop-context (st)
   (setf (rust-state-indent st) (rust-context-indent (pop (rust-state-context st)))))
 
@@ -46,9 +50,10 @@
   (let ((table (make-hash-table :test 'equal)))
     (dolist (word '("mod" "type" "resource" "auto" "fn" "pred" "iter" "const" "tag" "obj"))
       (puthash word 'def table))
-    (dolist (word '("if" "else" "while" "do" "alt" "for" "break" "cont" "put" "ret" "be" "fail"
+    (dolist (word '("if" "else" "while" "do" "for" "break" "cont" "put" "ret" "be" "fail"
                     "check" "assert" "claim" "prove" "native" "import" "export" "let" "log" "log_err"))
       (puthash word t table))
+    (puthash "alt" 'alt table)
     table))
 ;; FIXME type-context keywords
 
@@ -156,12 +161,14 @@
     (setf rust-tcat nil)
     (let ((tok (funcall (rust-state-tokenize st) st))
           (cur-cx (rust-context-type cx))
-          (is-def nil))
+          (is-def nil)
+          (expect (rust-state-expect st)))
       (when (stringp tok)
         (let ((kw (gethash tok rust-value-keywords nil)))
           (when (eq kw 'def) (setf is-def t))
+          (when (eq kw 'alt) (setf expect 'alt))
           (setf tok (cond (kw 'font-lock-keyword-face)
-                          ((rust-state-expect-def st) 'font-lock-function-name-face)
+                          ((eq expect 'def) 'font-lock-function-name-face)
                           (t nil)))))
       (when rust-tcat
         (when (eq (rust-context-align cx) 'unset)
@@ -170,7 +177,13 @@
           ((?\; ?: ?\{)
            (when (eq cur-cx 'statement) (rust-pop-context st))
            (when (eq rust-tcat ?\{)
-             (rust-push-context st ?\} (- (current-column) 1))))
+             (let ((is-alt (eq (rust-state-expect st) 'alt))
+                   (inside-alt (dolist (cx (rust-state-context st))
+                                 (when (eq (rust-context-type cx) ?\})
+                                   (return (eq (rust-context-in-alt cx) 'outer)))))
+                   (newcx (rust-push-context st ?\} (- (current-column) 1))))
+               (cond (is-alt (setf expect nil (rust-context-in-alt newcx) 'outer))
+                     (inside-alt (setf (rust-context-in-alt newcx) 'inner))))))
           (?\[ (rust-push-context st ?\] (- (current-column) 1)))
           (?\( (rust-push-context st ?\) (- (current-column) 1)))
           (?\} (dolist (close '(statement ?\} statement))
@@ -180,17 +193,19 @@
           (t (cond ((eq cur-cx rust-tcat) (rust-pop-context st))
                    ((or (eq cur-cx ?\}) (eq cur-cx 'top))
                     (rust-push-context st 'statement)))))
-        (setf (rust-state-expect-def st) is-def))
+        (setf (rust-state-expect st) (cond (is-def 'def)
+                                           ((eq expect 'def) nil)
+                                           (t expect))))
       tok)))
 
-;; FIXME alt half-indent
 (defun rust-indent (st)
   (let* ((cx (car (rust-state-context st)))
-         (closing (eq (rust-context-type cx) (char-after))))
+         (closing (eq (rust-context-type cx) (char-after)))
+         (unit (if (rust-context-in-alt cx) (/ rust-indent-unit 2) rust-indent-unit)))
     (cond ((eq (rust-state-tokenize st) 'rust-token-string) 0)
           ((eq (rust-context-type cx) 'statement)
-           (+ (rust-context-indent cx) (if (eq (char-after) ?\}) 0 rust-indent-unit)))
+           (+ (rust-context-indent cx) (if (eq (char-after) ?\}) 0 unit)))
           ((eq (rust-context-align cx) t) (+ (rust-context-column cx) (if closing 0 1)))
-          (t (+ (rust-context-indent cx) (if closing 0 rust-indent-unit))))))
+          (t (+ (rust-context-indent cx) (if closing 0 unit))))))
 
 (provide 'rust-mode)
