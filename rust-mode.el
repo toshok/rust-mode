@@ -1,10 +1,11 @@
-;(require 'cm-mode)
+(require 'cm-mode)
+(require 'cc-mode)
 
-;; FIXME this doesn't do what I hoped it would wrt to paren-matching in comments
-;(defvar rust-mode-syntax-table (funcall (c-lang-const c-make-mode-syntax-table rust))
-;  "Syntax table used in rust-mode buffers.")
 (defvar rust-mode-map (make-keymap))
 (defvar rust-indent-unit 4)
+(defvar rust-syntax-table (let ((table (make-syntax-table)))
+                            (c-populate-syntax-table table)
+                            table))
 
 (add-to-list 'auto-mode-alist '("\\.rs$" . rust-mode))
 (add-to-list 'auto-mode-alist '("\\.rc$" . rust-mode))
@@ -12,7 +13,7 @@
 (defun rust-mode ()
   (interactive)
   (kill-all-local-variables)
-;  (set-syntax-table rust-mode-syntax-table)
+  (set-syntax-table rust-syntax-table)
   (use-local-map rust-mode-map)
   (setq major-mode 'rust-mode mode-name "Rust")
   (run-hooks 'rust-mode-hook)
