@@ -22,10 +22,12 @@
 (defun make-rust-state ()
   (vector 'rust-token-base
           (list (vector 'top (- rust-indent-unit) nil nil))
-          0))
+          0
+          nil))
 (defmacro rust-state-tokenize (x) `(aref ,x 0))
 (defmacro rust-state-context (x) `(aref ,x 1))
 (defmacro rust-state-indent (x) `(aref ,x 2))
+(defmacro rust-state-expect-def (x) `(aref ,x 3))
 
 (defmacro rust-context-type (x) `(aref ,x 0))
 (defmacro rust-context-indent (x) `(aref ,x 1))
@@ -42,9 +44,10 @@
 (defvar rust-punc-chars "()[].{}:;")
 (defvar rust-value-keywords
   (let ((table (make-hash-table :test 'equal)))
-    (dolist (word '("mod" "if" "else" "while" "do" "alt" "for" "break" "cont" "put" "ret" "be" "fail"
-                    "type" "resource" "check" "assert" "claim" "prove" "state" "gc" "native" "auto"
-                    "fn" "pred" "iter" "import" "export" "let" "const" "log" "log_err" "tag" "obj"))
+    (dolist (word '("mod" "type" "resource" "auto" "fn" "pred" "iter" "const" "tag" "obj"))
+      (puthash word 'def table))
+    (dolist (word '("if" "else" "while" "do" "alt" "for" "break" "cont" "put" "ret" "be" "fail"
+                    "check" "assert" "claim" "prove" "native" "import" "export" "let" "log" "log_err"))
       (puthash word t table))
     table))
 ;; FIXME type-context keywords
@@ -90,7 +93,7 @@
            (setf rust-tcat 'ident)
            (if (and (eq (char-after) ?:) (eq (char-after (+ (point) 1)) ?:)
                     (not (eq (char-after (+ (point) 2)) ?:)))
-               (progn (forward-char 2) 'font-lock-constant-face)
+               (progn (forward-char 2) 'font-lock-builtin-face)
              (match-string 0)))
       (def ((?0 . ?9))
            (rust-eat-re "0x[0-9a-fA-F]+\\|[0-9]+\\(\\.[0-9]+\\)?\\(e[+\\-]?[0-9]+\\)?")
@@ -152,10 +155,14 @@
         (setf (rust-context-align cx) nil)))
     (setf rust-tcat nil)
     (let ((tok (funcall (rust-state-tokenize st) st))
-          (cur-cx (rust-context-type cx)))
+          (cur-cx (rust-context-type cx))
+          (is-def nil))
       (when (stringp tok)
-        (setf tok (and (gethash tok rust-value-keywords nil)
-                       'font-lock-keyword-face)))
+        (let ((kw (gethash tok rust-value-keywords nil)))
+          (when (eq kw 'def) (setf is-def t))
+          (setf tok (cond (kw 'font-lock-keyword-face)
+                          ((rust-state-expect-def st) 'font-lock-function-name-face)
+                          (t nil)))))
       (when rust-tcat
         (when (eq (rust-context-align cx) 'unset)
           (setf (rust-context-align cx) t))
@@ -172,7 +179,8 @@
                    (setf cur-cx (rust-context-type (car (rust-state-context st)))))))
           (t (cond ((eq cur-cx rust-tcat) (rust-pop-context st))
                    ((or (eq cur-cx ?\}) (eq cur-cx 'top))
-                    (rust-push-context st 'statement))))))
+                    (rust-push-context st 'statement)))))
+        (setf (rust-state-expect-def st) is-def))
       tok)))
 
 ;; FIXME alt half-indent
