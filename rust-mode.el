@@ -21,15 +21,6 @@
 (add-to-list 'auto-mode-alist '("\\.rs$" . rust-mode))
 (add-to-list 'auto-mode-alist '("\\.rc$" . rust-mode))
 
-(defun rust-mode ()
-  (interactive)
-  (kill-all-local-variables)
-  (set-syntax-table rust-syntax-table)
-  (use-local-map rust-mode-map)
-  (setq major-mode 'rust-mode mode-name "Rust")
-  (run-hooks 'rust-mode-hook)
-  (cm-mode (make-cm-mode 'rust-token 'make-rust-state 'copy-sequence 'equal 'rust-indent)))
-
 (defun make-rust-state ()
   (vector 'rust-token-base
           (list (vector 'top (- rust-indent-unit) nil nil))
@@ -112,7 +103,7 @@
       (def ((?0 . ?9))
            (rust-eat-re "0x[0-9a-fA-F]+\\|[0-9]+\\(\\.[0-9]+\\)?\\(e[+\\-]?[0-9]+\\)?")
            (setf rust-tcat 'atom)
-           (rust-eat-re "[iuf][0-9]+")
+           (rust-eat-re "[iuf][0-9]*")
            'font-lock-constant-face)
       (def ?. (forward-char 1)
            (cond ((rust-eat-re "[0-9]+\\(e[+\\-]?[0-9]+\\)?")
@@ -218,5 +209,13 @@
            (+ (rust-context-indent cx) (if (eq (char-after) ?\}) 0 unit)))
           ((eq (rust-context-align cx) t) (+ (rust-context-column cx) (if closing 0 1)))
           (t (+ (rust-context-indent cx) (if closing 0 unit))))))
+
+(define-derived-mode rust-mode fundamental-mode "Rust"
+  "Major mode for editing Rust source files."
+  (set-syntax-table rust-syntax-table)
+  (use-local-map rust-mode-map)
+  (setq major-mode 'rust-mode mode-name "Rust")
+  (run-hooks 'rust-mode-hook)
+  (cm-mode (make-cm-mode 'rust-token 'make-rust-state 'copy-sequence 'equal 'rust-indent)))
 
 (provide 'rust-mode)
