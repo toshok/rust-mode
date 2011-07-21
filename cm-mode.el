@@ -126,16 +126,14 @@
   (condition-case err
   (with-current-buffer buffer
     (let ((end-time (time-add (current-time) (list 0 0 500)))
-          (quitting nil)
-          work)
+          (quitting nil))
     (save-excursion
       (while (and (not quitting)
-                  (loop
-                   (unless cm-worklist (return nil))
-                   (setf work (apply 'min cm-worklist))
-                   (when (< work (point-max)) (return t))
-                   (cm-clear-work-items work most-positive-fixnum)))
-        (goto-char work)
+                  (when cm-worklist
+                    (let ((work (apply 'min cm-worklist)))
+                      (when (>= work (point-max))
+                        (setf cm-worklist ()))
+                      (goto-char work))))
         (let ((state (cm-find-state-before-point))
               (startpos (point)))
           (loop
