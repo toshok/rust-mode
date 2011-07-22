@@ -56,6 +56,7 @@
                     "check" "assert" "claim" "prove" "native" "import" "export" "let" "log" "log_err"))
       (puthash word t table))
     (puthash "alt" 'alt table)
+    (dolist (word '("true" "false")) (puthash word 'atom table))
     table))
 ;; FIXME type-context keywords
 
@@ -168,9 +169,8 @@
           (expect (rust-state-expect st)))
       (when (stringp tok)
         (let ((kw (gethash tok rust-value-keywords nil)))
-          (when (eq kw 'def) (setf is-def t))
-          (when (eq kw 'alt) (setf expect 'alt))
-          (setf tok (cond (kw 'font-lock-keyword-face)
+          (case kw (def (setf is-def t)) (alt (setf expect 'alt)))
+          (setf tok (cond (kw (if (eq kw 'atom) 'font-lock-constant-face 'font-lock-keyword-face))
                           ((eq expect 'def) 'font-lock-function-name-face)
                           (t nil)))))
       (when rust-tcat
