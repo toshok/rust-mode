@@ -227,6 +227,7 @@
   (use-local-map rust-mode-map)
   (setq major-mode 'rust-mode mode-name "Rust")
   (run-hooks 'rust-mode-hook)
+  (set (make-local-variable 'indent-tabs-mode) nil)
   (cm-mode (make-cm-mode 'rust-token 'make-rust-state 'copy-sequence 'equal 'rust-indent)))
 
 (provide 'rust-mode)
