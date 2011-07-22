@@ -207,7 +207,7 @@
 
 (defun rust-indent (st)
   (let* ((cx (let ((head (car (rust-state-context st))))
-               (if (and (eq (char-after) ?\{) (eq (rust-context-type head) 'statement))
+               (if (and (member (char-after) '(?\{ ?\})) (eq (rust-context-type head) 'statement))
                    (cadr (rust-state-context st)) head)))
          (closing (eq (rust-context-type cx) (char-after)))
          (unit (if (member (rust-context-info cx) '(alt-inner alt-outer))
