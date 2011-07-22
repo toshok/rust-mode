@@ -1,10 +1,6 @@
 (require 'cm-mode)
 (require 'cc-mode)
 
-(defvar rust-mode-map (let ((map (make-keymap)))
-                        (define-key map "}" 'rust-electric-brace)
-                        (define-key map "{" 'rust-electric-brace)
-                        map))
 (defun rust-electric-brace (arg)
   (interactive "*P")
   (self-insert-command (prefix-numeric-value arg))
@@ -224,10 +220,12 @@
 (define-derived-mode rust-mode fundamental-mode "Rust"
   "Major mode for editing Rust source files."
   (set-syntax-table rust-syntax-table)
-  (use-local-map rust-mode-map)
   (setq major-mode 'rust-mode mode-name "Rust")
   (run-hooks 'rust-mode-hook)
   (set (make-local-variable 'indent-tabs-mode) nil)
   (cm-mode (make-cm-mode 'rust-token 'make-rust-state 'copy-sequence 'equal 'rust-indent)))
+
+(define-key rust-mode-map "}" 'rust-electric-brace)
+(define-key rust-mode-map "{" 'rust-electric-brace)
 
 (provide 'rust-mode)
