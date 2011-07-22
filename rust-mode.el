@@ -214,6 +214,7 @@
          (unit (if (member (rust-context-info cx) '(alt-inner alt-outer))
                    (/ rust-indent-unit 2) rust-indent-unit)))
     (cond ((eq (rust-state-tokenize st) 'rust-token-string) 0)
+          ((eq (rust-context-type cx) 'comment) (rust-context-indent cx))
           ((eq (rust-context-type cx) 'statement)
            (+ (rust-context-indent cx) (if (eq (char-after) ?\}) 0 unit)))
           ((eq (rust-context-align cx) t) (+ (rust-context-column cx) (if closing 0 1)))
