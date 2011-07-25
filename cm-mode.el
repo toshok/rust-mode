@@ -67,7 +67,11 @@
      (when (= (point) (point-min))
        (return (funcall (cm-mode-start-state cm-cur-mode))))
      (let ((st (get-text-property (- (point) 1) 'cm-parse-state)))
-       (when st (return (funcall (cm-mode-copy-state cm-cur-mode) st))))
+       (when (and st (save-excursion
+                       (backward-char)
+                       (beginning-of-line)
+                       (not (looking-at "[	 ]*$"))))
+         (return (funcall (cm-mode-copy-state cm-cur-mode) st))))
      (let ((i (current-indentation)))
        (when (< i min-indent)
          (setf min-indent i min-indented (point))))
@@ -83,7 +87,7 @@
       (cm-highlight-line state)
       (put-text-property (point) (+ (point) 1) 'cm-parse-state
                          (funcall (cm-mode-copy-state cm-cur-mode) state))
-      (forward-char 1))
+      (forward-char))
     state))
 
 ;; Highlighting
@@ -107,7 +111,7 @@
      (return (funcall (cm-mode-start-state cm-cur-mode))))
    (let ((cur (get-text-property (- (point) 1) 'cm-parse-state)))
      (when cur (return (funcall (cm-mode-copy-state cm-cur-mode) cur))))
-   (backward-char 1)))
+   (backward-char)))
 
 (defun cm-schedule-work (delay)
   (run-with-idle-timer delay nil 'call/preserved-state 'cm-do-some-work (current-buffer)))
@@ -147,7 +151,7 @@
            (when (or (let ((timer-idle-list nil)) (input-pending-p))
                      (time-less-p end-time (current-time)))
              (setf quitting t) (return))
-           (forward-char 1))
+           (forward-char))
           (cm-clear-work-items startpos (point))
           (when quitting
             (push (+ (point) 1) cm-worklist)
