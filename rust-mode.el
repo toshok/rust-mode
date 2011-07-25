@@ -153,6 +153,20 @@
          (return))))
     'font-lock-comment-face))
 
+(defun rust-pop-statement (st)
+  (let* ((old (rust-pop-context st))
+         (top (car (rust-state-context st)))
+         (unit (if (member (rust-context-info top) '(alt-inner alt-outer))
+                   (/ rust-indent-unit 2) rust-indent-unit)))
+    ;; Adjust indentation of context based on actual indentation of content
+    (when (and (not (rust-context-align top))
+               (not (= (rust-context-indent old) (+ (rust-context-indent top) unit)))
+               (member (rust-context-type top) '(top ?\})))
+      (let* ((pop (rust-pop-context st))
+             (new (copy-sequence pop)))
+        (push new (rust-state-context st))
+        (setf (rust-context-indent new) (- (rust-context-indent old) unit))))))
+
 (defun rust-token (st)
   (let ((cx (car (rust-state-context st))))
     (when (bolp)
@@ -174,8 +188,7 @@
         (when (eq (rust-context-align cx) 'unset)
           (setf (rust-context-align cx) t))
         (case rust-tcat
-          ((?\; ?: ?,)
-           (when (eq cur-cx 'statement) (rust-pop-context st)))
+          ((?\; ?: ?,) (when (eq cur-cx 'statement) (rust-pop-statement st)))
           (?\{
            (when (eq cur-cx 'statement) (rust-pop-context st))
            (let ((is-alt (eq (rust-state-expect st) 'alt))
