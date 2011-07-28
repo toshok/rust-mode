@@ -31,10 +31,19 @@
   (let ((prev-cons nil)
         (rem cm-worklist))
     (while rem
-      (cond ((or (< (car rem) from) (> (car rem) to)) (setf prev-cons rem))
-            (prev-cons (setf (cdr prev-cons) (cdr rem)))
-            (t (setf cm-worklist (cdr rem))))
-      (setf rem (cdr rem)))))
+      (let ((pos (marker-position (car rem))))
+        (cond ((or (< pos from) (> pos to)) (setf prev-cons rem))
+              (prev-cons (setf (cdr prev-cons) (cdr rem)))
+              (t (setf cm-worklist (cdr rem))))
+        (setf rem (cdr rem))))))
+
+(defun cm-min-worklist-item ()
+  (let ((rest cm-worklist) (min most-positive-fixnum))
+    (while rest
+      (let ((pos (marker-position (car rest))))
+        (when (< pos min) (setf min pos)))
+      (setf rest (cdr rest)))
+    min))
 
 ;; Indentation
 
@@ -132,12 +141,8 @@
     (let ((end-time (time-add (current-time) (list 0 0 500)))
           (quitting nil))
     (save-excursion
-      (while (and (not quitting)
-                  (when cm-worklist
-                    (let ((work (apply 'min cm-worklist)))
-                      (when (>= work (point-max))
-                        (setf cm-worklist ()))
-                      (goto-char work))))
+      (while (and (not quitting) cm-worklist)
+        (goto-char (cm-min-worklist-item))
         (let ((state (cm-find-state-before-point))
               (startpos (point)))
           (loop
@@ -154,20 +159,20 @@
            (forward-char))
           (cm-clear-work-items startpos (point))
           (when quitting
-            (push (+ (point) 1) cm-worklist)
+            (push (copy-marker (+ (point) 1)) cm-worklist)
             (cm-schedule-work 0.05)))))))
   (error (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
   (cm-preserve-state 'remove-text-properties from to '(cm-parse-state))
-  (push from cm-worklist)
+  (push (copy-marker from) cm-worklist)
   (cm-schedule-work 0.2))
 
 ;; Entry function
 
 (defun cm-mode (mode)
   (set (make-local-variable 'cm-cur-mode) mode)
-  (set (make-local-variable 'cm-worklist) '(1))
+  (set (make-local-variable 'cm-worklist) (list (copy-marker 1)))
   (when (cm-mode-indent mode)
     (set (make-local-variable 'indent-line-function) 'cm-indent))
   (add-hook 'after-change-functions 'cm-after-change-function t t)
