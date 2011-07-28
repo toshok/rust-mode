@@ -42,7 +42,7 @@
   (let (indent-pos)
     (save-excursion
       (beginning-of-line)
-      (let ((state (call/preserved-state 'cm-state-for-point))
+      (let ((state (cm-preserve-state 'cm-state-for-point))
             (old-indent (current-indentation)))
         (back-to-indentation)
         (setf indent-pos (point))
@@ -51,7 +51,7 @@
             (indent-line-to new-indent)
             (setf indent-pos (point))
             (beginning-of-line)
-            (call/preserved-state
+            (cm-preserve-state
              (lambda ()
                (cm-highlight-line state)
                (when (< (point) (point-max))
@@ -114,9 +114,9 @@
    (backward-char)))
 
 (defun cm-schedule-work (delay)
-  (run-with-idle-timer delay nil 'call/preserved-state 'cm-do-some-work (current-buffer)))
+  (run-with-idle-timer delay nil 'cm-preserve-state 'cm-do-some-work (current-buffer)))
 
-(defun call/preserved-state (f &rest args)
+(defun cm-preserve-state (f &rest args)
   (let ((modified (buffer-modified-p))
         (buffer-undo-list t)
         (inhibit-read-only t)
@@ -159,7 +159,7 @@
   (error (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
-  (remove-text-properties from to '(cm-parse-state))
+  (cm-preserve-state 'remove-text-properties from to '(cm-parse-state))
   (push from cm-worklist)
   (cm-schedule-work 0.2))
 
