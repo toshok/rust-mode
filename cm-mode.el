@@ -144,7 +144,8 @@
       (while (and (not quitting) cm-worklist)
         (goto-char (cm-min-worklist-item))
         (let ((state (cm-find-state-before-point))
-              (startpos (point)))
+              (startpos (point))
+              (timer-idle-list nil))
           (loop
            (cm-highlight-line state)
            (when (= (point) (point-max)) (return))
@@ -157,10 +158,10 @@
                      (time-less-p end-time (current-time)))
              (setf quitting t) (return))
            (forward-char))
-          (cm-clear-work-items startpos (point))
-          (when quitting
-            (push (copy-marker (+ (point) 1)) cm-worklist)
-            (cm-schedule-work 0.05)))))))
+          (cm-clear-work-items startpos (point)))
+        (when quitting
+          (push (copy-marker (+ (point) 1)) cm-worklist)
+          (cm-schedule-work 0.05))))))
   (error (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
