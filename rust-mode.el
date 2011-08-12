@@ -50,7 +50,8 @@
     (dolist (word '("mod" "type" "resource" "auto" "fn" "pred" "iter" "tag" "obj"))
       (puthash word 'def table))
     (dolist (word '("if" "else" "while" "do" "for" "break" "cont" "put" "ret" "be" "fail" "const"
-                    "check" "assert" "claim" "prove" "native" "import" "export" "let" "log" "log_err"))
+                    "check" "assert" "claim" "prove" "native" "import" "export" "let" "log" "log_err"
+                    "lambda" "block"))
       (puthash word t table))
     (puthash "alt" 'alt table)
     (dolist (word '("true" "false")) (puthash word 'atom table))
