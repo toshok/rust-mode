@@ -177,6 +177,7 @@
   (when (cm-mode-indent mode)
     (set (make-local-variable 'indent-line-function) 'cm-indent))
   (add-hook 'after-change-functions 'cm-after-change-function t t)
+  (add-hook 'after-revert-hook (lambda () (cm-after-change-function 1 (point-max) nil)) t t)
   (cm-schedule-work 0.05))
 
 (provide 'cm-mode)
