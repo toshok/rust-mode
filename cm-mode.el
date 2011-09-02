@@ -122,27 +122,35 @@
      (when cur (return (funcall (cm-mode-copy-state cm-cur-mode) cur))))
    (backward-char)))
 
+(defvar cm-log-list ())
+(defmacro cm-log (x) ())
+
 (defun cm-schedule-work (delay)
+  (cm-log "scheduling")
   (run-with-idle-timer delay nil 'cm-preserve-state 'cm-do-some-work (current-buffer)))
 
 (defun cm-preserve-state (f &rest args)
+  (cm-log "entering preserve")
   (let ((modified (buffer-modified-p))
         (buffer-undo-list t)
         (inhibit-read-only t)
         (inhibit-point-motion-hooks t)
         (inhibit-modification-hooks t))
     (unwind-protect (apply f args)
+      (cm-log "leaving preserve")
       (unless modified
         (restore-buffer-modified-p nil)))))
 
 (defun cm-do-some-work (buffer)
   (condition-case err
   (with-current-buffer buffer
+    (cm-log "doing work")
     (let ((end-time (time-add (current-time) (list 0 0 500)))
           (quitting nil))
     (save-excursion
       (while (and (not quitting) cm-worklist)
         (goto-char (cm-min-worklist-item))
+        (cm-log (list "found work" (point)))
         (let ((state (cm-find-state-before-point))
               (startpos (point))
               (timer-idle-list nil))
@@ -158,13 +166,17 @@
                      (time-less-p end-time (current-time)))
              (setf quitting t) (return))
            (forward-char))
+          (cm-log (list "clearing work" startpos (point)))
           (cm-clear-work-items startpos (point)))
         (when quitting
+          (cm-log (list "quitting, storing" (+ (point) 1)))
           (push (copy-marker (+ (point) 1)) cm-worklist)
-          (cm-schedule-work 0.05))))))
-  (error (print (error-message-string err)))))
+          (cm-schedule-work 0.05)))))
+    (cm-log "while loop finished"))
+  (error (cm-log (list "err" err)) (print (error-message-string err)))))
 
 (defun cm-after-change-function (from to oldlen)
+  (cm-log (list "after-change" from to))
   (cm-preserve-state 'remove-text-properties from to '(cm-parse-state))
   (push (copy-marker from) cm-worklist)
   (cm-schedule-work 0.2))
