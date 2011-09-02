@@ -51,7 +51,7 @@
       (puthash word 'def table))
     (dolist (word '("if" "else" "while" "do" "for" "break" "cont" "put" "ret" "be" "fail" "const"
                     "check" "assert" "claim" "prove" "native" "import" "export" "let" "log" "log_err"
-                    "lambda" "block"))
+                    "lambda" "use"))
       (puthash word t table))
     (puthash "alt" 'alt table)
     (dolist (word '("true" "false")) (puthash word 'atom table))
@@ -103,9 +103,9 @@
                (progn (forward-char 2) 'font-lock-builtin-face)
              (match-string 0)))
       (def ((?0 . ?9))
-           (rust-eat-re "0x[0-9a-fA-F]+\\|[0-9]+\\(\\.[0-9]+\\)?\\(e[+\\-]?[0-9]+\\)?")
+           (rust-eat-re "0x[0-9a-fA-F_]+\\|0b[01_]+\\|[0-9_]+\\(\\.[0-9_]+\\)?\\(e[+\\-]?[0-9_]+\\)?")
            (setf rust-tcat 'atom)
-           (rust-eat-re "[iuf][0-9]*")
+           (rust-eat-re "[iuf][0-9_]*")
            'font-lock-constant-face)
       (def ?. (forward-char)
            (cond ((rust-eat-re "[0-9]+\\(e[+\\-]?[0-9]+\\)?")
