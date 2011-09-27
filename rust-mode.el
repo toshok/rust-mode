@@ -63,12 +63,36 @@
 (defmacro rust-eat-re (re)
   `(when (looking-at ,re) (goto-char (match-end 0)) t))
 
+(defun pairp (pair)
+  (and (consp pair) (not (listp (cdr pair)))))
+
+(defun flatten (ls)
+  (let ((flatten2 (lambda (l a)
+		    (if (null l)
+			a
+		      (funcall flatten2 (cdr l) (append a (if (listp (car l))
+							      (car l)
+							    (list (car l)))))))))
+    (funcall flatten2 ls '())))
+
+(defun rust-expandpair (pair)
+  (if (pairp pair)
+      (loop for i from (car pair) to (cdr pair)
+	    collect i)
+    (if (consp pair)
+	(rust-flatten pair)
+      pair)))
+
+(defun rust-flatten (l)
+  (flatten (mapcar (lambda (elt) (rust-expandpair elt)) l)))
+
+
 (defvar rust-char-table
-  (let ((table (make-char-table 'rust)))
+  (let ((table (make-char-table 'syntax-table)))
     (macrolet ((def (range &rest body)
                     `(let ((--b (lambda (st) ,@body)))
                        ,@(mapcar (lambda (elt) `(set-char-table-range table ',elt --b))
-                                 (if (consp range) range (list range))))))
+                                 (rust-expandpair (if (consp range) range (list range)))))))
       (def t (forward-char) nil)
       (def (?\s ?\t) (skip-chars-forward " \t") nil)
       (def ?\" (forward-char)
