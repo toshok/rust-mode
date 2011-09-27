@@ -67,13 +67,13 @@
   (and (consp pair) (not (listp (cdr pair)))))
 
 (defun flatten (ls)
-  (let ((flatten2 (lambda (l a)
-		    (if (null l)
-			a
-		      (funcall flatten2 (cdr l) (append a (if (listp (car l))
-							      (car l)
-							    (list (car l)))))))))
-    (funcall flatten2 ls '())))
+  (labels ((flatten2 (l a)
+		     (if (null l)
+			 a
+		       (flatten2 (cdr l) (append a (if (listp (car l))
+						       (car l)
+						     (list (car l))))))))
+    (flatten2 ls '())))
 
 (defun rust-expandpair (pair)
   (if (pairp pair)
