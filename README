@@ -18,3 +18,10 @@ buffer, move the cursor below it, and press C-j.
 
 Rust mode will automatically be associated with .rs and .rc files. To
 enable it explicitly, do M-x rust-mode.
+
+Or you can use use-package macro like this
+
+    (use-package rust-mode
+        :ensure t
+        :defer t
+        :init (require 'rust-mode))
